@@ -23,16 +23,19 @@ def find_key_word(cell, key_words):
             return key_word
     return None
 
-def process_sheet(sheet, key_words_dict):
+def process_sheet(sheet, key_words_dict, logger):
     for row in sheet.iter_rows():
         for cell in row:
-            if cell.value is None:
-                continue
-            key_word = find_key_word(cell, key_words)
-            if key_word is not None:
-                key_words_dict[key_word].append('{}'.format(cell.coordinate))
-                cell.value = ''
-                cell.fill = PatternFill("solid", fgColor="000000")
+            try:
+                if cell.value is None:
+                    continue
+                key_word = find_key_word(cell, key_words)
+                if key_word is not None:
+                    key_words_dict[key_word].append('{}'.format(cell.coordinate))
+                    cell.value = ''
+                    cell.fill = PatternFill("solid", fgColor="000000")
+            except:
+                logger.write('ERROR: cell {} has wrong value.\n'.format(cell).encode("utf-8"))
 
 def run_redaction(file_name, key_words, logger):
     # open an excel document
@@ -40,12 +43,13 @@ def run_redaction(file_name, key_words, logger):
     sheet_dict = {}
     for input_sheet in wb.worksheets:
         key_words_dict = {k:[] for k in key_words}
-        process_sheet(input_sheet, key_words_dict)
+        process_sheet(input_sheet, key_words_dict, logger)
         sheet_dict[input_sheet.title] = key_words_dict
-    wb.save(osp.join('output_files', osp.basename(file_name)))
+    file_name, suffix = osp.splitext(osp.basename(file_name))
+    wb.save(osp.join('output_files', '{}_redacted{}'.format(file_name, suffix)))
 
     for key_word in key_words:
-        logger.write('========= {} =========\n'.format(key_word.decode("utf-8")).encode("utf-8"))
+        logger.write('* {} \n'.format(key_word.decode("utf-8")).encode("utf-8"))
         for sheet_name, key_words_dict in sheet_dict.items():
             key_words_result = key_words_dict[key_word]
             if len(key_words_result) > 0:
@@ -54,6 +58,16 @@ def run_redaction(file_name, key_words, logger):
                 # print('{}, {}'.format(sheet_name, key_words_result))
 
 if __name__ == '__main__':
+
+    print('''
+                  _                           _            _   _             
+       __ _ _   _| |_ ___        _ __ ___  __| | __ _  ___| |_(_) ___  _ __  
+      / _` | | | | __/ _ \ _____| '__/ _ \/ _` |/ _` |/ __| __| |/ _ \| '_ \ 
+     | (_| | |_| | || (_) |_____| | |  __/ (_| | (_| | (__| |_| | (_) | | | |
+      \__,_|\__,_|\__\___/      |_|  \___|\__,_|\__,_|\___|\__|_|\___/|_| |_|
+                                                                             
+    ''')
+
     # check input xlsx files and keyword txt
     input_files = glob('input_files/*.xlsx')
     if len(input_files) == 0:
@@ -72,10 +86,15 @@ if __name__ == '__main__':
         os.mkdir('output_files')
     current_time = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
     logger = open('output_files/log-{}.txt'.format(current_time), 'wb')
+
+    # start process files
     print('Hi, I am processing your files one by one...')
     for input_file in input_files:
         print(input_file)
+        logger.write('=========== {} ===========\n'.format(input_file).encode("utf-8"))
         run_redaction(input_file, key_words, logger)
+        logger.write('\n'.encode("utf-8"))
+        logger.flush()
     logger.close()
     print('All files have been processed.')
     input("Press Enter to Quit...")
