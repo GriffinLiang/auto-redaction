@@ -18,10 +18,16 @@ def load_file_to_list(filename):
 
 def find_key_word(cell, key_words):
     for key_word in key_words:
-        # from IPython import embed; embed()
         if isinstance(cell.value, str) and key_word.decode("utf-8") in cell.value:
             return key_word
     return None
+
+def if_contain_chaos(keyword):
+    try:
+        keyword.encode("gb2312")
+    except UnicodeEncodeError:
+        return True
+    return False
 
 def process_sheet(sheet, key_words_dict, logger):
     for row in sheet.iter_rows():
@@ -42,6 +48,7 @@ def run_redaction(file_name, key_words, logger):
     wb = openpyxl.load_workbook(file_name)
     sheet_dict = {}
     for input_sheet in wb.worksheets:
+        print(input_sheet.title)
         key_words_dict = {k:[] for k in key_words}
         process_sheet(input_sheet, key_words_dict, logger)
         sheet_dict[input_sheet.title] = key_words_dict
@@ -79,22 +86,40 @@ if __name__ == '__main__':
         print('Keywords.txt can not be found in input_files directory.')
         input("Press Enter to Quit...")
         sys.exit(0)
+
     key_words = load_file_to_list('input_files/keywords.txt')
+    print('Some chaos keywords are listed below:')
+    is_chaos = False
+    for key_word_index, key_word in enumerate(key_words):
+        if if_contain_chaos(key_word.decode("utf-8")):
+            is_chaos = True
+            print('Keyword {}:{}'.format(key_word_index, key_word.decode("utf-8")))
+    if is_chaos:
+        input("Press correct the above keywords.")
+        key_word_correct = 'n'
+    else:
+        input("No chaos keywords are found.")
+        key_word_correct = 'y'
 
-    # check output directory
-    if not osp.exists('output_files'):
-        os.mkdir('output_files')
-    current_time = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-    logger = open('output_files/log-{}.txt'.format(current_time), 'wb')
+    if key_word_correct is 'y':
+        # from IPython import embed; embed()
+        # check output directory
+        if not osp.exists('output_files'):
+            os.mkdir('output_files')
+        current_time = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+        logger = open('output_files/log-{}.txt'.format(current_time), 'wb')
 
-    # start process files
-    print('Hi, I am processing your files one by one...')
-    for input_file in input_files:
-        print(input_file)
-        logger.write('=========== {} ===========\n'.format(input_file).encode("utf-8"))
-        run_redaction(input_file, key_words, logger)
-        logger.write('\n'.encode("utf-8"))
-        logger.flush()
-    logger.close()
-    print('All files have been processed.')
+        # start process files
+        print('Hi, I am processing your files one by one...')
+        for input_file in input_files:
+            print(input_file)
+            logger.write('=========== {} ===========\n'.format(input_file).encode("utf-8"))
+            run_redaction(input_file, key_words, logger)
+            logger.write('\n'.encode("utf-8"))
+            logger.flush()
+        logger.close()
+        print('All files have been processed.')
+    else:
+        print('Please modify keywords.txt.')
+
     input("Press Enter to Quit...")
