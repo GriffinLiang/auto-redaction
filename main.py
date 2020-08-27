@@ -29,7 +29,8 @@ def if_contain_chaos(keyword):
         return True
     return False
 
-def process_sheet(sheet, key_words_dict, logger):
+
+def process_sheet(sheet, key_words_dict, logger, mode):
     for row in sheet.iter_rows():
         for cell in row:
             try:
@@ -38,19 +39,24 @@ def process_sheet(sheet, key_words_dict, logger):
                 key_word = find_key_word(cell, key_words)
                 if key_word is not None:
                     key_words_dict[key_word].append('{}'.format(cell.coordinate))
-                    cell.value = ''
-                    cell.fill = PatternFill("solid", fgColor="000000")
+                    if mode == 'b':
+                        cell.value = ''
+                        cell.fill = PatternFill("solid", fgColor="000000")
+                    else:
+                        # replace all the keywords
+                        for kw in key_words:
+                            cell.value = cell.value.replace(kw.decode("utf-8"), '[DP Redaction]')
             except:
                 logger.write('ERROR: cell {} has wrong value.\n'.format(cell).encode("utf-8"))
 
-def run_redaction(file_name, key_words, logger):
+def run_redaction(file_name, key_words, logger, mode):
     # open an excel document
     wb = openpyxl.load_workbook(file_name)
     sheet_dict = {}
     for input_sheet in wb.worksheets:
         print(input_sheet.title)
         key_words_dict = {k:[] for k in key_words}
-        process_sheet(input_sheet, key_words_dict, logger)
+        process_sheet(input_sheet, key_words_dict, logger, mode)
         sheet_dict[input_sheet.title] = key_words_dict
     file_name, suffix = osp.splitext(osp.basename(file_name))
     wb.save(osp.join('output_files', '{}_redacted{}'.format(file_name, suffix)))
@@ -98,11 +104,14 @@ if __name__ == '__main__':
         input("Press correct the above keywords.")
         key_word_correct = 'n'
     else:
-        input("No chaos keywords are found.")
+        input("No chaos keywords are found. Please press enter to continue.")
         key_word_correct = 'y'
 
     if key_word_correct is 'y':
-        # from IPython import embed; embed()
+        mode = input("Use [r]eplace or [b]lack?\n")
+        print('You choose {}'.format(mode))
+        while mode not in ['r', 'b']:
+            mode = input('Please input r or b. r -> repalce, b -> black.')
         # check output directory
         if not osp.exists('output_files'):
             os.mkdir('output_files')
@@ -114,7 +123,7 @@ if __name__ == '__main__':
         for input_file in input_files:
             print(input_file)
             logger.write('=========== {} ===========\n'.format(input_file).encode("utf-8"))
-            run_redaction(input_file, key_words, logger)
+            run_redaction(input_file, key_words, logger, mode)
             logger.write('\n'.encode("utf-8"))
             logger.flush()
         logger.close()
@@ -123,3 +132,4 @@ if __name__ == '__main__':
         print('Please modify keywords.txt.')
 
     input("Press Enter to Quit...")
+    # from IPython import embed; embed()
