@@ -33,6 +33,7 @@ def if_contain_chaos(keyword):
 def process_sheet(sheet, key_words_dict, logger, mode):
     for row in sheet.iter_rows():
         for cell in row:
+            # from IPython import embed; embed()
             try:
                 if cell.value is None:
                     continue
@@ -70,23 +71,45 @@ def run_redaction(file_name, key_words, logger, mode):
                 # logger.write('{}, {}'.format(sheet_name, key_words_result))
                 # print('{}, {}'.format(sheet_name, key_words_result))
 
-if __name__ == '__main__':
+def trace_sheet(sheet, logger):
+    sheet_dict = {
+        'dp': [],
+        'ss': []
+    }
 
-    print('''
-                  _                           _            _   _             
-       __ _ _   _| |_ ___        _ __ ___  __| | __ _  ___| |_(_) ___  _ __  
-      / _` | | | | __/ _ \ _____| '__/ _ \/ _` |/ _` |/ __| __| |/ _ \| '_ \ 
-     | (_| | |_| | || (_) |_____| | |  __/ (_| | (_| | (__| |_| | (_) | | | |
-      \__,_|\__,_|\__\___/      |_|  \___|\__,_|\__,_|\___|\__|_|\___/|_| |_|
-                                                                             
-    ''')
+    for row in sheet.iter_rows():
+        for cell in row:
+            try:
+                if cell.fill.fgColor.index not in [1, '00000000']: # fg is not black
+                    continue
 
-    # check input xlsx files and keyword txt
-    input_files = glob('input_files/*.xlsx')
-    if len(input_files) == 0:
-        print('No xlsx files are found in input_files directory.')
-        input("Press Enter to Quit...")
-        sys.exit(0)
+                if cell.value is None:
+                    sheet_dict['ss'].append('{}'.format(cell.coordinate))
+                elif cell.value in ['DP Redaction', 'DP Redacted', 'Redacted']:
+                    sheet_dict['dp'].append('{}'.format(cell.coordinate))
+                else:
+                    pass
+            except:
+                logger.write('ERROR: cell {} has wrong value.\n'.format(cell).encode("utf-8"))
+
+    return sheet_dict
+
+
+def trace_file(file_name, logger):
+    # open an excel document
+    wb = openpyxl.load_workbook(file_name)
+    for input_sheet in wb.worksheets:
+        sheet_title = input_sheet.title
+        print(sheet_title)
+        sheet_dict = trace_sheet(input_sheet, logger)
+        logger.write('* {} \n'.format(sheet_title).encode("utf-8"))
+        for op_name, op_coord in sheet_dict.items():
+            if len(op_coord) > 0:
+                logger.write('{}: {}\n'.format(op_name, ','.join(op_coord)).encode("utf-8"))
+                logger.flush()
+
+
+def run_keyword(input_files):
 
     if not osp.exists('input_files/keywords.txt'):
         print('Keywords.txt can not be found in input_files directory.')
@@ -101,8 +124,8 @@ if __name__ == '__main__':
             is_chaos = True
             print('Keyword {}:{}'.format(key_word_index, key_word.decode("utf-8")))
     if is_chaos:
-        input("Press correct the above keywords.")
-        key_word_correct = 'n'
+        is_continue = input("[c]ontinue or [s]top to correct the above keywords.")
+        key_word_correct = 'n' if is_continue == 's' else 'y'
     else:
         input("No chaos keywords are found. Please press enter to continue.")
         key_word_correct = 'y'
@@ -130,6 +153,46 @@ if __name__ == '__main__':
         print('All files have been processed.')
     else:
         print('Please modify keywords.txt.')
+
+def run_trace(input_files):
+    current_time = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+    logger = open('output_files/log-{}.txt'.format(current_time), 'wb')
+
+    # start process files
+    print('Hi, I am processing your files one by one...')
+    for input_file in input_files:
+        print(input_file)
+        logger.write('=========== {} ===========\n'.format(input_file).encode("utf-8"))
+        trace_file(input_file, logger)
+        logger.write('\n'.encode("utf-8"))
+        logger.flush()
+    logger.close()
+    print('All files have been processed.')
+
+
+if __name__ == '__main__':
+
+    print('''
+                  _                           _            _   _             
+       __ _ _   _| |_ ___        _ __ ___  __| | __ _  ___| |_(_) ___  _ __  
+      / _` | | | | __/ _ \ _____| '__/ _ \/ _` |/ _` |/ __| __| |/ _ \| '_ \ 
+     | (_| | |_| | || (_) |_____| | |  __/ (_| | (_| | (__| |_| | (_) | | | |
+      \__,_|\__,_|\__\___/      |_|  \___|\__,_|\__,_|\___|\__|_|\___/|_| |_|
+                                                                             
+    ''')
+
+    # check input xlsx files
+    input_files = glob('input_files/*.xlsx')
+    if len(input_files) == 0:
+        print('No xlsx files are found in input_files directory.')
+        input("Press Enter to Quit...")
+        sys.exit(0)
+
+    mode = input("[R]eplace or [T]race ?")
+    if mode.lower() == 'r':
+        run_keyword(input_files)
+    else:
+        run_trace(input_files)
 
     input("Press Enter to Quit...")
     # from IPython import embed; embed()
