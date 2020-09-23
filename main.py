@@ -31,9 +31,9 @@ def if_contain_chaos(keyword):
 
 
 def process_sheet(sheet, key_words_dict, logger, mode):
+    key_words = list(key_words_dict.keys())
     for row in sheet.iter_rows():
         for cell in row:
-            # from IPython import embed; embed()
             try:
                 if cell.value is None:
                     continue
@@ -47,8 +47,8 @@ def process_sheet(sheet, key_words_dict, logger, mode):
                         # replace all the keywords
                         for kw in key_words:
                             cell.value = cell.value.replace(kw.decode("utf-8"), '[DP Redaction]')
-            except:
-                logger.write('ERROR: cell {} has wrong value.\n'.format(cell).encode("utf-8"))
+            except Exception as ex:
+                logger.write('ERROR: cell {} has error {}.\n'.format(cell, ex).encode("utf-8"))
 
 def run_redaction(file_name, key_words, logger, mode):
     # open an excel document
@@ -80,7 +80,8 @@ def trace_sheet(sheet, logger):
     for row in sheet.iter_rows():
         for cell in row:
             try:
-                if cell.fill.fgColor.index not in [1, '00000000']: # fg is not black
+                # from IPython import embed; embed()
+                if cell.fill.fill_type != 'solid' or cell.fill.fgColor.index not in [1, '00000000']: # fg is not black
                     continue
 
                 if cell.value is None:
